@@ -4,7 +4,7 @@
 set -e
 
 echo "-----------------------------------------------------------"
-echo "RubyFPV: Attempting to install RTL8814AU driver (rtw88)..."
+echo "RubyFPV: Attempting to install RTL88XXAU driver (rtl8812au)..."
 echo "-----------------------------------------------------------"
 echo "This script will try to install dependencies, clone the driver"
 echo "repository, compile, and install the driver."
@@ -48,13 +48,13 @@ echo "All required build dependencies appear to be present."
 echo ""
 
 # Define Repository and Clone Directory
-DRIVER_REPO="https://github.com/Kfro89/rtw88.git" # User provided this
+DRIVER_REPO="https://github.com/Kfro89/rtl8812au"
 # It's better to clone into a specific versioned/project dir if possible,
 # or let the user manage where they clone it if Ruby is also cloned from git.
 # For now, /tmp is a temporary build location.
-# A more persistent location might be ~/ruby_drivers/rtw88
+# A more persistent location might be ~/ruby_drivers/rtl8812au
 BUILD_PARENT_DIR="${HOME}/ruby_driver_builds"
-CLONE_DIR="${BUILD_PARENT_DIR}/rtw88"
+CLONE_DIR="${BUILD_PARENT_DIR}/rtl8812au"
 
 echo "[2/5] Preparing build directory: ${CLONE_DIR}"
 mkdir -p "${CLONE_DIR}"
@@ -84,9 +84,8 @@ fi
 echo ""
 
 # Compile the Driver
-echo "[4/5] Compiling the rtw88 driver... This may take several minutes."
-# Some drivers (like older ones for 8812au) might have specific platform options.
-# The rtw88 driver generally doesn't need specific platform variables for RPi for the make command itself.
+echo "[4/5] Compiling the rtl8812au driver... This may take several minutes."
+# Enabling RTL8814AU support via build flag
 if make clean; then
     echo "Cleaned previous build artifacts."
 else
@@ -97,7 +96,7 @@ fi
 NUM_CORES=$(nproc 2>/dev/null || echo 1) # Defaults to 1 if nproc fails
 echo "Using ${NUM_CORES} core(s) for compilation."
 
-if make -j${NUM_CORES}; then
+if make -j${NUM_CORES} CONFIG_RTL8814A=y; then
     echo "Driver compilation completed successfully."
 else
     echo "-----------------------------------------------------------"
@@ -126,7 +125,7 @@ echo ""
 # The C code will attempt to modprobe after this script exits successfully.
 
 echo "-----------------------------------------------------------"
-echo "RTL8814AU (rtw88) driver installation script finished successfully."
-echo "The system should now attempt to load the rtw_8814au module."
+echo "RTL88XXAU (rtl8812au) driver installation script finished successfully."
+echo "The system should now attempt to load the 88XXau module."
 echo "-----------------------------------------------------------"
 exit 0
