@@ -47,6 +47,23 @@ https://www.rcgroups.com/forums/showthread.php?3880253-Ruby-Digital-radio-RC-FPV
 
 or by sending an email to petrusoroaga@yahoo.com, providing a short explanation of what you are trying to accomplish.
 
+# Building the project and installing RTL88XXAU driver
+
+To build RubyFPV you need the common development tools found in `build-essential`,
+the kernel headers for your running kernel and the `wiringPi` library. Once these
+packages are installed you can compile the sources by running `make`.
+
+Some radio modules use the RTL88XXAU Wi‑Fi chipset. RubyFPV provides a helper
+script that downloads and builds this driver. Run it with root privileges so the
+modules are installed system-wide:
+
+```bash
+sudo scripts/install_rtw8814au_driver.sh
+```
+
+The script verifies dependencies, compiles the driver and installs it for the
+current kernel.
+
 # Adding code
 
 You can create pull requests, if that's what you really want, and I will code review them.
