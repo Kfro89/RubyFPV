@@ -1,4 +1,4 @@
-# RubyFPV: Open Source Digital FPV Radio System
+# RubyFPV: Open Source Digital FPV Radio System - RTL8814U Support
 Ruby is a full open source solution (hardware and software) for robust end to end digital radio links, designed specifically for controlling and managing UAVs/drones/planes/cars and other remote vehicles
 
 Read more about Ruby, including how to setup, install and use your Ruby systems, here: https://rubyfpv.com/
