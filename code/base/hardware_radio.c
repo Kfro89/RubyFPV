@@ -1519,7 +1519,8 @@ int hardware_radio_load_radio_modules(int iEchoToConsole)
       iCountLoaded++;
    }
 
-   if ( hardware_radio_has_rtl8814au_cards() ) // This function will be created in a later step
+   // Check for presence of RTL8814AU cards
+   if ( hardware_radio_has_rtl8814au_cards() )
    {
       if ( iEchoToConsole )
       {
