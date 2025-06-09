@@ -1312,15 +1312,15 @@ int hardware_load_driver_rtl8814au()
    szOutputOpenIPC[0] = 0;
    int iRetOpenIPC = -1;
 
-   log_line("[HardwareRadio] OpenIPC: Attempting to load rtw_8814au module...");
-   iRetOpenIPC = hw_execute_bash_command_silent("modprobe rtw_8814au rtw_tx_pwr_idx_override=1", szOutputOpenIPC);
+   log_line("[HardwareRadio] OpenIPC: Attempting to load 88XXau module...");
+   iRetOpenIPC = hw_execute_bash_command_silent("modprobe 88XXau rtw_tx_pwr_idx_override=1", szOutputOpenIPC);
    if ( 0 == iRetOpenIPC )
    {
-      log_line("[HardwareRadio] OpenIPC: Successfully loaded driver rtw_8814au via modprobe.");
+      log_line("[HardwareRadio] OpenIPC: Successfully loaded driver 88XXau via modprobe.");
       return 1;
    }
    
-   log_softerror_and_alarm("[HardwareRadio] OpenIPC: Failed to load rtw_8814au via modprobe (ret: %d, out: %s). Trying legacy path /extra/8814au.ko.", iRetOpenIPC, szOutputOpenIPC);
+   log_softerror_and_alarm("[HardwareRadio] OpenIPC: Failed to load 88XXau via modprobe (ret: %d, out: %s). Trying legacy path /extra/8814au.ko.", iRetOpenIPC, szOutputOpenIPC);
    
    char szFile[MAX_FILE_PATH_SIZE];
    snprintf(szFile, sizeof(szFile)/sizeof(szFile[0]), "/lib/modules/%s/extra/8814au.ko", szPlatform);
@@ -1330,7 +1330,7 @@ int hardware_load_driver_rtl8814au()
       hw_execute_bash_command_raw("insmod /lib/modules/$(uname -r)/extra/8814au.ko rtw_tx_pwr_idx_override=1 2>&1", NULL);
       hardware_sleep_ms(50);
       // Try to modprobe the specific legacy name if insmod was attempted
-      hw_execute_bash_command_raw("modprobe 8814au rtw_tx_pwr_idx_override=1 2>&1", NULL);
+      hw_execute_bash_command_raw("modprobe 88XXau rtw_tx_pwr_idx_override=1 2>&1", NULL);
       log_line("[HardwareRadio] OpenIPC: Attempted insmod and modprobe for legacy 8814au.ko.");
    }
    else
@@ -1349,22 +1349,22 @@ int hardware_load_driver_rtl8814au()
 
    hw_execute_bash_command("sudo modprobe cfg80211", NULL);
    
-   log_line("[HardwareRadio] Attempting to load rtw_8814au module...");
-   sprintf(szComm, "sudo modprobe rtw_8814au rtw_tx_pwr_idx_override=1");
+   log_line("[HardwareRadio] Attempting to load 88XXau module...");
+   sprintf(szComm, "sudo modprobe 88XXau rtw_tx_pwr_idx_override=1");
    // Using hw_execute_bash_command_raw to capture output and check for common success (no output or specific messages)
    // A simple return code check might be too naive if modprobe succeeds but with warnings.
    // However, for simplicity and directness as requested:
    if ( 0 == hw_execute_bash_command_raw_silent(szComm, szOutput) ) // _raw_silent checks exit code, ignores output length
    {
-      log_line("[HardwareRadio] Successfully loaded driver rtw_8814au.");
+      log_line("[HardwareRadio] Successfully loaded driver 88XXau.");
       return 1; // Success
    }
    else
    {
       // Try legacy name "8814au" as a fallback before installing
-      log_softerror_and_alarm("[HardwareRadio] Failed to load driver rtw_8814au (ret code from _raw_silent was non-zero, output: [%s]). Trying legacy name 8814au...", szOutput);
+      log_softerror_and_alarm("[HardwareRadio] Failed to load driver 88XXau (ret code from _raw_silent was non-zero, output: [%s]). Trying legacy name 8814au...", szOutput);
       szOutput[0] = 0;
-      sprintf(szComm, "sudo modprobe 8814au rtw_tx_pwr_idx_override=1");
+      sprintf(szComm, "sudo modprobe 88XXau rtw_tx_pwr_idx_override=1");
       if ( 0 == hw_execute_bash_command_raw_silent(szComm, szOutput) )
       {
          log_line("[HardwareRadio] Successfully loaded driver 8814au (legacy name).");
@@ -1846,7 +1846,7 @@ int hardware_install_driver_rtl8814au(int iEchoToConsole)
       {
          log_line("[HardwareRadio] Script %s executed successfully.", szScriptPath);
          // Attempt to load the driver again after successful installation
-         hw_execute_bash_command("sudo modprobe 8814au rtw_tx_pwr_idx_override=1 2>&1", NULL);
+         hw_execute_bash_command("sudo modprobe 88XXau rtw_tx_pwr_idx_override=1 2>&1", NULL);
          return 1;
       }
       else
