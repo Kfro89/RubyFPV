@@ -22,8 +22,8 @@ typedef unsigned char u8;
 #define CORE_PLUGIN_CAPABILITY_RETRANSMISSIONS      (((u32)0x01)<<2)   // Request this capability if your plugin wants automatic retransmissions support for the video stream
 #define CORE_PLUGIN_CAPABILITY_ADAPTIVE_VIDEO       (((u32)0x01)<<3)   // Request this capability if your plugin wants automatic adjustmens of the video stream throughput rate
 #define CORE_PLUGIN_CAPABILITY_DATA_STREAM          (((u32)0x01)<<4)   // Request this capability if your plugin wants to send custom data between vehicle and controller (both ways or one way)
-#define CORE_PLUGIN_CAPABILITY_HARDWARE_ACCESS_UART (((u32)0x01)<<5)   // Request this capability if your plugin wants physical hardware access to a serial UART on the device. The end user will choose to allow access or not and which serial UART will allocate. 
-#define CORE_PLUGIN_CAPABILITY_HARDWARE_ACCESS_SPI  (((u32)0x01)<<6)   // Request this capability if your plugin wants physical hardware access to a SPI interface on the device. The end user will choose to allow access or not and which SPI interface will allocate. 
+#define CORE_PLUGIN_CAPABILITY_HARDWARE_ACCESS_UART (((u32)0x01)<<5)   // Request this capability if your plugin wants physical hardware access to a serial UART on the device. The end user will choose to allow access or not and which serial UART will allocate.
+#define CORE_PLUGIN_CAPABILITY_HARDWARE_ACCESS_SPI  (((u32)0x01)<<6)   // Request this capability if your plugin wants physical hardware access to a SPI interface on the device. The end user will choose to allow access or not and which SPI interface will allocate.
 
 // Flags that denote the type of data exchanged over air between the two ends of the radio link
 #define CORE_PLUGIN_TYPE_VIDEO_SEGMENT 1
@@ -36,6 +36,13 @@ typedef unsigned char u8;
 #define CORE_PLUGIN_VIDEO_STREAM_SOURCE_USB   8
 #define CORE_PLUGIN_VIDEO_STREAM_SOURCE_IP    9
 #define CORE_PLUGIN_VIDEO_STREAM_SOURCE_CUSTOM 20
+
+// Setting Types
+#define CORE_PLUGIN_SETTING_TYPE_BOOL   1
+#define CORE_PLUGIN_SETTING_TYPE_INT    2
+#define CORE_PLUGIN_SETTING_TYPE_ENUM   3
+#define CORE_PLUGIN_SETTING_TYPE_STRING 4
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -103,7 +110,7 @@ void core_plugin_on_start_video_stream_capture(int iWidth, int iHeight, int iFPS
 // The plugin should stop the video capture
 // This method is called only for the plugin instance that is running on the vehicle side.
 void core_plugin_on_stop_video_stream_capture();
- 
+
 // The plugin should start the video playback on the screen (controller) at the allocated rectangle on the screen.
 // This method is called only for the plugin instance that is running on the controller side.
 // It's up to the plugin to cache all the received data over the air and create the appropriate stream for the video playback program it chooses to use.
@@ -128,6 +135,27 @@ void core_plugin_on_allocated_uart(char* szUARTName);
 // The plugin should stop using the UART (dealocated by end user)
 // This method is called only for the plugin instance that requested UART access.
 void core_plugin_on_stop_using_uart();
+
+// Settings Configuration API
+int core_plugin_get_settings_count();
+const char* core_plugin_get_setting_name(int iSettingIndex);
+int core_plugin_get_setting_type(int iSettingIndex);
+int core_plugin_get_setting_min_value(int iSettingIndex);
+int core_plugin_get_setting_max_value(int iSettingIndex);
+int core_plugin_get_setting_default_value(int iSettingIndex);
+int core_plugin_get_setting_options_count(int iSettingIndex);
+const char* core_plugin_get_setting_option_name(int iSettingIndex, int iOptionIndex);
+
+// Accessors for settings
+int core_plugin_get_setting_value(int iSettingIndex);
+void core_plugin_set_setting_value(int iSettingIndex, int iValue);
+
+// String settings accessors (caller manages memory)
+const char* core_plugin_get_setting_string_value(int iSettingIndex);
+void core_plugin_set_setting_string_value(int iSettingIndex, const char* szValue);
+
+// Notification when settings change
+void core_plugin_on_settings_changed();
 
 
 #ifdef __cplusplus

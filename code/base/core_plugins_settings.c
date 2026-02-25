@@ -53,7 +53,7 @@ int s_iCorePluginsSettingsCount = 0;
 
 void reset_CorePluginsSettings()
 {
-   
+   s_iCorePluginsSettingsCount = 0;
    log_line("Reseted core plugins settings.");
 }
 
@@ -83,6 +83,21 @@ int save_CorePluginsSettings()
       fprintf(fd, "%s\n", szBuff);
       fprintf(fd, "%d\n", s_CorePluginsSettings[i].iVersion);
       fprintf(fd, "%d %u %u\n", s_CorePluginsSettings[i].iEnabled, s_CorePluginsSettings[i].uRequestedCapabilities, s_CorePluginsSettings[i].uAllocatedCapabilities);
+
+      for( int k=0; k<MAX_CORE_PLUGIN_SETTINGS; k++ )
+         fprintf(fd, "%d ", s_CorePluginsSettings[i].iSettingsValues[k]);
+      fprintf(fd, "\n");
+
+      for( int k=0; k<MAX_CORE_PLUGIN_SETTINGS; k++ )
+      {
+         strcpy(szBuff, s_CorePluginsSettings[i].szSettingsStrings[k]);
+         if ( 0 == szBuff[0] )
+            strcpy(szBuff, "_");
+         for( int j=0; j<(int)strlen(szBuff); j++ )
+            if ( szBuff[j] == ' ' || (szBuff[j] < 32) )
+               szBuff[j] = '*';
+         fprintf(fd, "%s\n", szBuff);
+      }
    }
    fclose(fd);
 
@@ -138,6 +153,26 @@ int load_CorePluginsSettings()
          { failed = 11; }
       if ( (!failed) && (3 != fscanf(fd, "%d %u %u", &s_CorePluginsSettings[i].iEnabled, &s_CorePluginsSettings[i].uRequestedCapabilities, &s_CorePluginsSettings[i].uAllocatedCapabilities)) )
          { failed = 12; }
+
+      for( int k=0; k<MAX_CORE_PLUGIN_SETTINGS; k++ )
+         if ( (!failed) && (1 != fscanf(fd, "%d", &s_CorePluginsSettings[i].iSettingsValues[k])) )
+            { failed = 13; }
+
+      for( int k=0; k<MAX_CORE_PLUGIN_SETTINGS; k++ )
+      {
+         if ( (!failed) && (1 != fscanf(fd, "%s", szBuff)) )
+            { failed = 14; }
+         if ( !failed )
+         {
+            if ( 0 == strcmp(szBuff, "_") )
+               szBuff[0] = 0;
+            for( int j=0; j<(int)strlen(szBuff); j++ )
+               if ( szBuff[j] == '*' )
+                  szBuff[j] = ' ';
+            strcpy(s_CorePluginsSettings[i].szSettingsStrings[k], szBuff);
+         }
+      }
+
       if ( failed )
       {
          s_iCorePluginsSettingsCount = i;
@@ -184,6 +219,13 @@ CorePluginSettings* get_CorePluginSettings(char* szPluginGUID)
    return NULL;
 }
 
+CorePluginRuntimeInfo* get_CorePluginRuntimeInfo(int iPluginIndex)
+{
+   if ( iPluginIndex < 0 || iPluginIndex >= s_iCorePluginsRuntimeCount )
+      return NULL;
+   return &(s_CorePluginsRuntimeInfo[iPluginIndex]);
+}
+
 int _load_CorePlugin(char* szFileName, int iEnumerateOnly)
 {
    char szFile[256];
@@ -221,6 +263,25 @@ int _load_CorePlugin(char* szFileName, int iEnumerateOnly)
       s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pLibrary = NULL;
       return -5;
    }
+
+   // Load optional settings API
+   s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetSettingsCount = (int (*)(void)) dlsym(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pLibrary, "core_plugin_get_settings_count");
+   s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetSettingName = (const char* (*)(int)) dlsym(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pLibrary, "core_plugin_get_setting_name");
+   s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetSettingType = (int (*)(int)) dlsym(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pLibrary, "core_plugin_get_setting_type");
+   s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetSettingMinValue = (int (*)(int)) dlsym(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pLibrary, "core_plugin_get_setting_min_value");
+   s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetSettingMaxValue = (int (*)(int)) dlsym(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pLibrary, "core_plugin_get_setting_max_value");
+   s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetSettingDefaultValue = (int (*)(int)) dlsym(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pLibrary, "core_plugin_get_setting_default_value");
+   s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetSettingOptionsCount = (int (*)(int)) dlsym(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pLibrary, "core_plugin_get_setting_options_count");
+   s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetSettingOptionName = (const char* (*)(int, int)) dlsym(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pLibrary, "core_plugin_get_setting_option_name");
+
+   s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetSettingValue = (int (*)(int)) dlsym(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pLibrary, "core_plugin_get_setting_value");
+   s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreSetSettingValue = (void (*)(int, int)) dlsym(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pLibrary, "core_plugin_set_setting_value");
+
+   s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetSettingString = (const char* (*)(int)) dlsym(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pLibrary, "core_plugin_get_setting_string_value");
+   s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreSetSettingString = (void (*)(int, const char*)) dlsym(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pLibrary, "core_plugin_set_setting_string_value");
+
+   s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreOnSettingsChanged = (void (*)(void)) dlsym(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pLibrary, "core_plugin_on_settings_changed");
+
 
    const char* szPluginName = (*(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetName))();
    const char* szPluginGUID = (*(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetUID))();
@@ -265,7 +326,9 @@ int _load_CorePlugin(char* szFileName, int iEnumerateOnly)
    s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetVersion = (int (*)(void)) dlsym(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pLibrary, "core_plugin_get_version");
    strcpy(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].szFile, szFile);
 
-   if ( NULL == get_CorePluginSettings(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].szGUID) )
+   CorePluginSettings* pSettings = get_CorePluginSettings(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].szGUID);
+
+   if ( NULL == pSettings )
    {
       if ( s_iCorePluginsSettingsCount < MAX_CORE_PLUGINS_COUNT )
       {
@@ -282,13 +345,31 @@ int _load_CorePlugin(char* szFileName, int iEnumerateOnly)
             s_CorePluginsSettings[s_iCorePluginsSettingsCount].uRequestedCapabilities = (*(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreRequestCapab))();
    
          s_CorePluginsSettings[s_iCorePluginsSettingsCount].uAllocatedCapabilities = s_CorePluginsSettings[s_iCorePluginsSettingsCount].uRequestedCapabilities;
+
+         // Init default settings values
+         for( int k=0; k<MAX_CORE_PLUGIN_SETTINGS; k++ )
+         {
+            s_CorePluginsSettings[s_iCorePluginsSettingsCount].iSettingsValues[k] = 0;
+            s_CorePluginsSettings[s_iCorePluginsSettingsCount].szSettingsStrings[k][0] = 0;
+         }
+
+         if ( NULL != s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetSettingsCount &&
+              NULL != s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetSettingDefaultValue )
+         {
+            int iCount = (*(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetSettingsCount))();
+            for( int k=0; k<iCount && k<MAX_CORE_PLUGIN_SETTINGS; k++ )
+            {
+               s_CorePluginsSettings[s_iCorePluginsSettingsCount].iSettingsValues[k] = (*(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetSettingDefaultValue))(k);
+            }
+         }
+
          s_iCorePluginsSettingsCount++;
          save_CorePluginsSettings();
+         pSettings = get_CorePluginSettings(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].szGUID);
       }
    }
 
    u32 uRequestedCapabilities = (*(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreRequestCapab))();
-   CorePluginSettings* pSettings = get_CorePluginSettings(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].szGUID);
    if ( NULL != pSettings )
    {
       pSettings->uRequestedCapabilities = uRequestedCapabilities;
@@ -298,7 +379,37 @@ int _load_CorePlugin(char* szFileName, int iEnumerateOnly)
    }
 
    if ( ! iEnumerateOnly )
+   {
       (*(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreInit))(CORE_PLUGIN_RUNTIME_LOCATION_CONTROLLER, uRequestedCapabilities);
+
+      // Apply settings to the plugin
+      if ( NULL != pSettings )
+      {
+         if ( NULL != s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetSettingsCount )
+         {
+            int iCount = (*(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetSettingsCount))();
+            for( int k=0; k<iCount && k<MAX_CORE_PLUGIN_SETTINGS; k++ )
+            {
+               int iType = CORE_PLUGIN_SETTING_TYPE_INT;
+               if ( NULL != s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetSettingType )
+                  iType = (*(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreGetSettingType))(k);
+
+               if ( iType == CORE_PLUGIN_SETTING_TYPE_STRING )
+               {
+                  if ( NULL != s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreSetSettingString )
+                     (*(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreSetSettingString))(k, pSettings->szSettingsStrings[k]);
+               }
+               else
+               {
+                  if ( NULL != s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreSetSettingValue )
+                     (*(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreSetSettingValue))(k, pSettings->iSettingsValues[k]);
+               }
+            }
+         }
+         if ( NULL != s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreOnSettingsChanged )
+            (*(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pFunctionCoreOnSettingsChanged))();
+      }
+   }
    else
    {
       dlclose(s_CorePluginsRuntimeInfo[s_iCorePluginsRuntimeCount].pLibrary);
@@ -439,4 +550,3 @@ char* get_CorePluginGUID(int iPluginIndex)
 
    return s_CorePluginsRuntimeInfo[iPluginIndex].szGUID;
 }
-
