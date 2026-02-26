@@ -37,6 +37,13 @@ typedef unsigned char u8;
 #define CORE_PLUGIN_VIDEO_STREAM_SOURCE_IP    9
 #define CORE_PLUGIN_VIDEO_STREAM_SOURCE_CUSTOM 20
 
+// Setting Types
+#define CORE_PLUGIN_SETTING_TYPE_BOOL   1
+#define CORE_PLUGIN_SETTING_TYPE_INT    2
+#define CORE_PLUGIN_SETTING_TYPE_ENUM   3
+#define CORE_PLUGIN_SETTING_TYPE_STRING 4
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -128,6 +135,27 @@ void core_plugin_on_allocated_uart(char* szUARTName);
 // The plugin should stop using the UART (dealocated by end user)
 // This method is called only for the plugin instance that requested UART access.
 void core_plugin_on_stop_using_uart();
+
+// Settings Configuration API
+int core_plugin_get_settings_count();
+const char* core_plugin_get_setting_name(int iSettingIndex);
+int core_plugin_get_setting_type(int iSettingIndex);
+int core_plugin_get_setting_min_value(int iSettingIndex);
+int core_plugin_get_setting_max_value(int iSettingIndex);
+int core_plugin_get_setting_default_value(int iSettingIndex);
+int core_plugin_get_setting_options_count(int iSettingIndex);
+const char* core_plugin_get_setting_option_name(int iSettingIndex, int iOptionIndex);
+
+// Accessors for settings
+int core_plugin_get_setting_value(int iSettingIndex);
+void core_plugin_set_setting_value(int iSettingIndex, int iValue);
+
+// String settings accessors (caller manages memory)
+const char* core_plugin_get_setting_string_value(int iSettingIndex);
+void core_plugin_set_setting_string_value(int iSettingIndex, const char* szValue);
+
+// Notification when settings change
+void core_plugin_on_settings_changed();
 
 
 #ifdef __cplusplus

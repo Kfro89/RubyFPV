@@ -36,6 +36,7 @@
 
 #include "menu.h"
 #include "menu_controller_plugins.h"
+#include "menu_core_plugin_settings.h"
 #include "menu_item_select.h"
 #include "menu_item_slider.h"
 #include "menu_item_range.h"
@@ -80,12 +81,16 @@ void MenuControllerPlugins::readPlugins()
       for( int i=0; i<m_iCountCorePlugins; i++ )
       {
          char* szName = get_CorePluginName(i);
-         m_pItemsSelectCore[i] = new MenuItemSelect(szName, "Enables, disables or removes this plugin");
-         m_pItemsSelectCore[i]->addSelection("Disabled");
-         m_pItemsSelectCore[i]->addSelection("Enabled");
-         m_pItemsSelectCore[i]->addSelection("Delete");
-         m_pItemsSelectCore[i]->setIsEditable();
-         m_IndexCorePlugins[i] = addMenuItem(m_pItemsSelectCore[i]);
+         char* szGUID = get_CorePluginGUID(i);
+         CorePluginSettings* pSettings = get_CorePluginSettings(szGUID);
+
+         char szBuff[256];
+         sprintf(szBuff, "%s", szName);
+         if ( NULL != pSettings )
+            sprintf(szBuff, "%s [%s]", szName, pSettings->iEnabled ? "Enabled" : "Disabled");
+
+         m_pItemsCore[i] = new MenuItem(szBuff, "Configure this plugin");
+         m_IndexCorePlugins[i] = addMenuItem(m_pItemsCore[i]);
          log_line("Added Core Plugin %d of %d at menu index %d.", i+1, m_iCountCorePlugins, m_IndexCorePlugins[i]);
       }
    }
@@ -115,7 +120,7 @@ void MenuControllerPlugins::readPlugins()
 
    addMenuItem(new MenuItemSection("Manage Plugins"));
 
-   m_IndexImport = addMenuItem(new MenuItem("Import Plugins", "Import new plugins from a USB memory stick."));
+   m_IndexImport = addMenuItem(new MenuItem("Import Plugins", "Import new plugins or DBC files from a USB memory stick."));
    m_pMenuItems[m_IndexImport]->showArrow();
    m_IndexSelectedPlugin = -1;
 }
@@ -141,18 +146,18 @@ void MenuControllerPlugins::valuesToUI()
 
    for( int i=0; i<m_iCountCorePlugins; i++ )
    {
-      if ( i >= MAX_CORE_PLUGINS_COUNT )
+      if ( i >= 20 ) // Defined as 20 in header
          break;
 
       char* szGUID = get_CorePluginGUID(i);
+      char* szName = get_CorePluginName(i);
       CorePluginSettings* pSettings = get_CorePluginSettings(szGUID);
       if ( NULL == pSettings )
          continue;
 
-      if ( pSettings->iEnabled )
-         m_pItemsSelectCore[i]->setSelectedIndex(1);
-      else
-         m_pItemsSelectCore[i]->setSelectedIndex(0);
+      char szBuff[256];
+      sprintf(szBuff, "%s [%s]", szName, pSettings->iEnabled ? "Enabled" : "Disabled");
+      m_pItemsCore[i]->setTitle(szBuff);
    }
    log_line("MenuControllerPlugins updated UI values.");
 }
@@ -184,32 +189,14 @@ void MenuControllerPlugins::onReturnFromChild(int iChildMenuId, int returnValue)
       return;
    }
    
-   if ( (5 == iChildMenuId/1000) && (1 == returnValue) && (-1 != m_IndexSelectedPlugin) )
-   {
-      char* szGUID = get_CorePluginGUID(m_IndexSelectedPlugin);
-      char* szName = get_CorePluginName(m_IndexSelectedPlugin);
-      log_line("User confirmed deletion of core plugin %d: %s, %s", m_IndexSelectedPlugin+1, szName, szGUID );
-      delete_CorePlugin(szGUID);
-      readPlugins();
-      valuesToUI();
-
-      t_packet_header PH;
-      radio_packet_init(&PH, PACKET_COMPONENT_LOCAL_CONTROL, PACKET_TYPE_LOCAL_CONTROLLER_RELOAD_CORE_PLUGINS, STREAM_ID_DATA);
-      PH.vehicle_id_src = PACKET_COMPONENT_COMMANDS;
-      PH.vehicle_id_dest = PACKET_COMPONENT_COMMANDS;
-      PH.total_length = sizeof(t_packet_header);
- 
-      u8 buffer[MAX_PACKET_TOTAL_SIZE];
-      memcpy(buffer, (u8*)&PH, sizeof(t_packet_header));
-      send_packet_to_router(buffer, PH.total_length);
-      return;
-   }
-   
    if ( (1 == iChildMenuId/1000) && (1 == returnValue) )
    {
       importFromUSB();
       return;
    }
+
+   // Refresh UI in case settings changed in child menu
+   valuesToUI();
 }
 
 
@@ -262,36 +249,14 @@ void MenuControllerPlugins::onSelectItem()
       m_IndexSelectedPlugin = m_SelectedIndex - m_IndexCorePlugins[0];
       log_line("MenuControllerPlugins selected core plugin %d", m_IndexSelectedPlugin+1);
 
-      int iAction = m_pItemsSelectCore[m_IndexSelectedPlugin]->getSelectedIndex();
-      if ( iAction == 0 || iAction == 1 )
-      {
-         CorePluginSettings* pSettings = get_CorePluginSettings(get_CorePluginGUID(m_IndexSelectedPlugin));
-         if ( NULL == pSettings )
-         {
-            log_softerror_and_alarm("MenuControllerPlugins failed to get plugins settings for core plugin %d of %d", m_IndexSelectedPlugin+1, m_iCountCorePlugins );
-            return;
-         }
-         if ( iAction == 0 )
-            pSettings->iEnabled = 0;
-         if ( iAction == 1 )
-            pSettings->iEnabled = 1;
-         save_CorePluginsSettings();
-         valuesToUI();
-         return;
-      }
-      if ( iAction == 2 )
-      {
-         MenuConfirmation* pMC = new MenuConfirmation("Delete Plugin","Are you sure you want to delete this plugin?",5);
-         pMC->m_yPos = 0.3;
-         add_menu_to_stack(pMC);
-         return;
-      }
+      MenuCorePluginSettings* pMenu = new MenuCorePluginSettings(m_IndexSelectedPlugin);
+      add_menu_to_stack(pMenu);
       return;
    }
 
    if ( m_IndexImport == m_SelectedIndex )
    {
-      MenuConfirmation* pMC = new MenuConfirmation("Import Plugins","Insert an USB stick containing your plugins and then press Ok to start the import process.",1, true);
+      MenuConfirmation* pMC = new MenuConfirmation("Import Plugins","Insert an USB stick containing your plugins or DBC files and then press Ok to start the import process.",1, true);
       pMC->m_yPos = 0.3;
       add_menu_to_stack(pMC);
       return;
@@ -331,11 +296,27 @@ void MenuControllerPlugins::importFromUSB()
    int countInvalidOSD = 0;
    int countImportedOSD = 0;
    int countImportedCore = 0;
+   int countImportedDBC = 0;
+
+   // Ensure DBC folder exists
+   sprintf(szComm, "mkdir -p %s", FOLDER_DBC);
+   hw_execute_bash_command(szComm, NULL);
 
    while ((dir = readdir(d)) != NULL)
    {
       if ( strlen(dir->d_name) < 4 )
          continue;
+
+      // Import DBC files
+      if ( NULL != strstr(dir->d_name, ".dbc") )
+      {
+         sprintf(szComm, "cp -rf %s/%s %s", FOLDER_USB_MOUNT, dir->d_name, FOLDER_DBC);
+         hw_execute_bash_command(szComm, NULL);
+         log_line("Imported DBC file: [%s]", dir->d_name);
+         countImportedDBC++;
+         countImportedTotal++;
+         continue;
+      }
 
       sprintf(szFile, "%s/%s", FOLDER_USB_MOUNT, dir->d_name);
       long lSize = 0;
@@ -439,27 +420,10 @@ void MenuControllerPlugins::importFromUSB()
       hardware_unmount_usb();
       return;
    }
-   if ( 1 == countImportedTotal )
-   {
-      if ( 1 == countImportedOSD )
-         strcpy(szBuff, "Found and imported one OSD plugin.");
-      else if ( 1 == countImportedCore )
-         strcpy(szBuff, "Found and imported one core plugin.");
-      else
-         strcpy(szBuff, "Found and imported one plugin.");
-   }
-   else
-   {
-      if ( 0 < countImportedOSD && 0 < countImportedCore )
-         sprintf(szBuff, "Found and imported %d plugins (%d OSD plugins, %d core plugins).", countImportedTotal, countImportedOSD, countImportedCore);
-      else if ( 0 < countImportedOSD )
-         sprintf(szBuff, "Found and imported %d plugins (%d OSD plugins).", countImportedTotal, countImportedOSD);
-      else if ( 0 < countImportedCore )
-         sprintf(szBuff, "Found and imported %d plugins (%d core plugins).", countImportedTotal, countImportedCore);
-      else
-         sprintf(szBuff, "Found and imported %d plugins.", countImportedTotal);
-   }
+
+   sprintf(szBuff, "Imported %d items (%d OSD, %d Core, %d DBC).", countImportedTotal, countImportedOSD, countImportedCore, countImportedDBC);
    addMessage(szBuff);
+
    hardware_unmount_usb();
 
    if ( countImportedOSD > 0 )

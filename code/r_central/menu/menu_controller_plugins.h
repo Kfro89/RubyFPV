@@ -20,7 +20,7 @@ class MenuControllerPlugins: public Menu
       void importFromUSB();
 
       MenuItemSelect* m_pItemsSelect[50];
-      MenuItemSelect* m_pItemsSelectCore[20];
+      MenuItem* m_pItemsCore[20];
       int m_IndexCorePlugins[20];
       int m_IndexOSDPlugins[MAX_OSD_PLUGINS+2];
       int m_IndexImport;
